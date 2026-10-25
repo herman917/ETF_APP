@@ -211,7 +211,7 @@ if st.sidebar.button("🚀 開始計算排行", type="primary"):
 
         top_50 = returns.sort_values(ascending=False).head(50)
 
-        # 為了精準判斷是否晚於起始日上市，額外抓取這 Top 50 檔的完整歷史資料
+        # 抓取 Top 50 檔完整歷史資料以判斷真實上市日
         top_yf_list = [f"{c}.TW" for c in top_50.index]
         df_history = yf.download(top_yf_list, period="max", progress=False)
         hist_close = (
@@ -219,6 +219,17 @@ if st.sidebar.button("🚀 開始計算排行", type="primary"):
             if isinstance(df_history.columns, pd.MultiIndex)
             else df_history
         )
+
+        # 統一將歷史資料欄位轉為純代號
+        hist_close_dict = {}
+        if isinstance(hist_close, pd.DataFrame):
+          for col in hist_close.columns:
+            pure_col = str(col).split(".")[0]
+            hist_close_dict[pure_col] = hist_close[col]
+          hist_close_df = pd.DataFrame(hist_close_dict)
+        else:
+          pure_col = top_50.index[0]
+          hist_close_df = pd.DataFrame({pure_col: hist_close})
 
         rows = []
         for rank, (p_code, ret) in enumerate(top_50.items(), 1):
@@ -229,11 +240,8 @@ if st.sidebar.button("🚀 開始計算排行", type="primary"):
 
           # 檢查真實上市日是否晚於使用者指定的起始日
           is_after = False
-          if p_code in hist_close.columns or len(top_50) == 1:
-            series_col = (
-                hist_close[p_code] if len(top_50) > 1 else hist_close
-            )
-            valid_series = series_col.dropna()
+          if p_code in hist_close_df.columns:
+            valid_series = hist_close_df[p_code].dropna()
             if not valid_series.empty:
               absolute_first_date = valid_series.index[0]
               is_after = absolute_first_date > pd.to_datetime(s_str)
