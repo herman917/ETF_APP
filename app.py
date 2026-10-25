@@ -8,8 +8,9 @@ st.set_page_config(
     page_title="台股 ETF 績效排行查詢", page_icon="📈", layout="wide"
 )
 
-st.title("📈 台灣全市場股票型與主動式 ETF 績效排行")
-st.write("透過自訂的起始與結束日期，自動計算並列出表現最好的前 30 名 ETF。")
+# 調整標題字體大小與文字
+st.markdown("### 📈 ETF 績效排行")
+st.write("依日期範圍, 計算表現最好的前 50 名 ETF (排除期貨類)")
 
 
 # 1. 完整全市場股票型與主動式 ETF 清單
@@ -167,7 +168,7 @@ if st.sidebar.button("🚀 開始計算排行", type="primary"):
   if start_date >= end_date:
     st.error("❌ 起始日期必須早於結束日期！")
   else:
-    with st.spinner("正在抓取最新市場數據並計算 Top 30，請稍候..."):
+    with st.spinner("正在抓取最新市場數據並計算 Top 50，請稍候..."):
       s_str = start_date.strftime("%Y-%m-%d")
       e_str = end_date.strftime("%Y-%m-%d")
 
@@ -208,10 +209,11 @@ if st.sidebar.button("🚀 開始計算排行", type="primary"):
         returns = (e_prices - s_prices) / s_prices * 100
         returns = returns.dropna()
 
-        top_30 = returns.sort_values(ascending=False).head(30)
+        # 改為抓取前 50 名
+        top_50 = returns.sort_values(ascending=False).head(50)
         rows = []
 
-        for rank, (p_code, ret) in enumerate(top_30.items(), 1):
+        for rank, (p_code, ret) in enumerate(top_50.items(), 1):
           name = etf_dict.get(p_code, "未知名稱")
           s_p = s_prices[p_code]
           e_p = e_prices[p_code]
