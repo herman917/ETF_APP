@@ -168,7 +168,7 @@ if st.sidebar.button("🚀 開始計算排行", type="primary"):
   if start_date >= end_date:
     st.error("❌ 起始日期必須早於結束日期！")
   else:
-    with st.spinner("正在抓取最新市場數據並計算 Top 50，請稍候..."):
+    with st.spinner("正在抓取市場數據並計算 Top 50，請稍候..."):
       s_str = start_date.strftime("%Y-%m-%d")
       e_str = end_date.strftime("%Y-%m-%d")
 
@@ -209,22 +209,35 @@ if st.sidebar.button("🚀 開始計算排行", type="primary"):
         returns = (e_prices - s_prices) / s_prices * 100
         returns = returns.dropna()
 
-        # 改為抓取前 50 名
         top_50 = returns.sort_values(ascending=False).head(50)
-        rows = []
 
+        # 為了精準判斷是否晚於起始日上市，額外抓取這 Top 50 檔的完整歷史資料
+        top_yf_list = [f"{c}.TW" for c in top_50.index]
+        df_history = yf.download(top_yf_list, period="max", progress=False)
+        hist_close = (
+            df_history["Close"]
+            if isinstance(df_history.columns, pd.MultiIndex)
+            else df_history
+        )
+
+        rows = []
         for rank, (p_code, ret) in enumerate(top_50.items(), 1):
           name = etf_dict.get(p_code, "未知名稱")
           s_p = s_prices[p_code]
           e_p = e_prices[p_code]
           ret_val = float(ret)
 
-          first_idx = data[p_code].first_valid_index()
-          is_after = (
-              first_idx > pd.to_datetime(s_str)
-              if first_idx is not None
-              else False
-          )
+          # 檢查真實上市日是否晚於使用者指定的起始日
+          is_after = False
+          if p_code in hist_close.columns or len(top_50) == 1:
+            series_col = (
+                hist_close[p_code] if len(top_50) > 1 else hist_close
+            )
+            valid_series = series_col.dropna()
+            if not valid_series.empty:
+              absolute_first_date = valid_series.index[0]
+              is_after = absolute_first_date > pd.to_datetime(s_str)
+
           s_p_str = ("*" if is_after else "") + f"{s_p:.2f}"
 
           avg_lots = 0.0
@@ -256,5 +269,5 @@ if st.sidebar.button("🚀 開始計算排行", type="primary"):
 
         df_result = pd.DataFrame(rows)
         st.success(f"✅ 查詢成功！區間：{s_str} 至 {e_str}")
-        st.caption("💡 註：ETF在起始日期還未上市的股價會標註 * 號")
+        st.caption("💡 註：ETF上市時間晚於計算起始日期的價格會標註 * 號")
         st.dataframe(df_result, use_container_width=True, hide_index=True)
