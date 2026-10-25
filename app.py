@@ -168,11 +168,7 @@ if st.sidebar.button("🚀 開始計算排行", type="primary"):
   if start_date >= end_date:
     st.error("❌ 起始日期必須早於結束日期！")
   else:
-<<<<<<< HEAD
     with st.spinner("正在抓取市場數據並計算 Top 50，請稍候..."):
-=======
-    with st.spinner("正在抓取最新市場數據並計算 Top 50，請稍候..."):
->>>>>>> 4c1e5d6a5241e0c26c965c5317e0720a2d0f7b61
       s_str = start_date.strftime("%Y-%m-%d")
       e_str = end_date.strftime("%Y-%m-%d")
 
@@ -213,7 +209,6 @@ if st.sidebar.button("🚀 開始計算排行", type="primary"):
         returns = (e_prices - s_prices) / s_prices * 100
         returns = returns.dropna()
 
-<<<<<<< HEAD
         top_50 = returns.sort_values(ascending=False).head(50)
 
         # 為了精準判斷是否晚於起始日上市，額外抓取這 Top 50 檔的完整歷史資料
@@ -226,12 +221,6 @@ if st.sidebar.button("🚀 開始計算排行", type="primary"):
         )
 
         rows = []
-=======
-        # 改為抓取前 50 名
-        top_50 = returns.sort_values(ascending=False).head(50)
-        rows = []
-
->>>>>>> 4c1e5d6a5241e0c26c965c5317e0720a2d0f7b61
         for rank, (p_code, ret) in enumerate(top_50.items(), 1):
           name = etf_dict.get(p_code, "未知名稱")
           s_p = s_prices[p_code]
