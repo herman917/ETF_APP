@@ -165,7 +165,7 @@ default_end = get_latest_date()
 start_date = st.sidebar.date_input("起始日期", default_start)
 end_date = st.sidebar.date_input("結束日期", default_end)
 st.sidebar.markdown("---")
-st.sidebar.caption("[by Herman Hsiao（正凌）](https://herman917.github.io/herman-home/)")
+st.sidebar.caption("[by Herman Hsiao](https://herman917.github.io/herman-home/)")
 
 if st.sidebar.button("🚀 開始計算排行", type="primary"):
   if start_date >= end_date:
