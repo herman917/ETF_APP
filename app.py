@@ -1,4 +1,5 @@
 import datetime
+import os
 import pandas as pd
 import streamlit as st
 import yfinance as yf
@@ -13,138 +14,55 @@ st.markdown("### 📈 ETF 績效排行")
 st.write("依日期範圍, 計算表現最好的前 50 名 ETF (排除期貨類)")
 
 
-# 1. 完整全市場股票型與主動式 ETF 清單
-@st.cache_data
-def load_etf_list():
-  etf_dict = {
-      "00685L": "群益台灣加權正2",
-      "0050": "元大台灣50",
-      "0051": "富邦中型100",
-      "0052": "富邦科技",
-      "0053": "元大電子",
-      "0055": "元大MSCI金融",
-      "0056": "元大高股息",
-      "0057": "富邦摩台",
-      "006203": "元大富櫃50",
-      "006204": "永豐臺灣加權",
-      "006208": "富邦台50",
-      "00639": "富邦深漢剛",
-      "00652": "富邦印度",
-      "00661": "富邦台港反1",
-      "00692": "富邦公司治理",
-      "00701": "國泰台灣標普高股息",
-      "00713": "元大台灣高息低波",
-      "00728": "第一金工業30",
-      "00730": "富邦臺灣優質高息",
-      "00731": "FH富時高息低波",
-      "00733": "富邦臺灣中小",
-      "00735": "國泰日經225",
-      "00736": "國泰新興市場",
-      "00737": "國泰中國A50",
-      "00739": "元大日經225",
-      "00757": "統一FANG+",
-      "00762": "元大全球未來通訊",
-      "00830": "國泰費城半導體",
-      "00850": "元大臺灣ESG永續",
-      "00851": "元大全球未來通訊",
-      "00861": "元大全球未來關鍵科技",
-      "00875": "國泰網路資安",
-      "00876": "新光臺灣半導體30",
-      "00878": "國泰永續高股息",
-      "00881": "國泰台灣5G+優選",
-      "00882": "中信中國高股息",
-      "00885": "富邦越南",
-      "00891": "中信關鍵半導體",
-      "00892": "富邦臺灣半導體",
-      "00893": "國泰智能車",
-      "00894": "中信小資高價30",
-      "00895": "富邦未來車",
-      "00896": "中信綠能及電動車",
-      "00897": "富邦基因免疫生技",
-      "00898": "國泰基因免疫革命",
-      "00900": "富邦特選高股息30",
-      "00901": "永豐智能車供應鏈",
-      "00903": "富邦台灣中小",
-      "00904": "群益半導體收益",
-      "00905": "FT臺灣Smart",
-      "00907": "永豐優息存股",
-      "00909": "國泰數位支付",
-      "00910": "第一金全球AI",
-      "00911": "華南永昌S&P半導體",
-      "00912": "兆豐台灣產業龍頭",
-      "00913": "兆豐特選台灣晶圓製造",
-      "00915": "凱基優選高股息30",
-      "00916": "國泰全球品牌50",
-      "00918": "大華優利高填息30",
-      "00919": "群益台灣精選高息",
-      "00921": "兆豐龍頭等權重",
-      "00922": "國泰台灣領袖50",
-      "00923": "群益台灣碳排優息",
-      "00924": "復華S&P500成長",
-      "00927": "群益半導體收益",
-      "00929": "復華台灣科技優息",
-      "00930": "永豐ESG低碳高息",
-      "00932": "台新臺灣永續高息",
-      "00934": "中信成長高股息",
-      "00935": "野村臺灣新科技50",
-      "00936": "台新臺灣優息成長",
-      "00939": "統一台灣高息動能",
-      "00940": "元大台灣價值高息",
-      "00941": "中信上游半導體",
-      "00943": "兆豐臺灣電子成長高息",
-      "00944": "野村趨勢動能高息",
-      "00946": "群益科技高息成長",
-      "00947": "台新臺灣IC設計",
-      "00949": "復華日本龍頭",
-      "00951": "台新日本半導體",
-      "00952": "凱基台灣優選30",
-      "00956": "統一台灣核心優選",
-      "00400A": "主動國泰動能高息",
-      "00401A": "主動摩根台灣鑫收",
-      "00402A": "主動安聯美國科技",
-      "00403A": "主動統一升級50",
-      "00404A": "主動聯博動能50",
-      "00405A": "主動富邦台灣龍耀",
-      "00406A": "主動中信台灣收益",
-      "00407A": "主動凱基台灣",
-      "00408A": "主動第一金優股息",
-      "00409A": "主動復華全球50",
-      "00410A": "主動永豐科技趨勢",
-      "00411A": "主動統一前沿科技",
-      "00412A": "主動安聯亞半導體",
-      "00415A": "主動群益核心50",
-      "00980A": "主動野村臺灣優選",
-      "00981A": "主動統一台股增長",
-      "00982A": "主動群益台灣強棒",
-      "00983A": "主動中信ARK創新",
-      "00984A": "主動安聯台灣高息",
-      "00985A": "主動野村台灣50",
-      "00986A": "主動台新龍頭成長",
-      "00987A": "主動台新優勢成長",
-      "00988A": "主動統一全球創新",
-      "00989A": "主動摩根美國科技",
-      "00990A": "主動元大AI新經濟",
-      "00991A": "主動復華未來50",
-      "00992A": "主動群益科技創新",
-      "00993A": "主動安聯台灣",
-      "00994A": "主動第一金台股優",
-      "00995A": "主動中信台灣卓越",
-      "00996A": "主動兆豐台灣豐收",
-      "00997A": "主動群益美國增長",
-      "00998A": "主動復華金融股息",
-      "00999A": "主動野村臺灣高息",
-      "009827": "玉山未來全球算力",
-  }
+ETF_SHEET_CSV_URL = (
+    "https://docs.google.com/spreadsheets/d/"
+    "1PKhV2I-W7q-aZ8XSVVhv4uP679Caqk79tseSA6tAYMw/export?format=csv"
+)
+LOCAL_ETF_CSV = os.path.join(os.path.dirname(__file__), "etf_list.csv")
+
+
+def _parse_etf_df(df):
+  if df is None or df.empty or len(df.columns) < 2:
+    return {}
+  code_col = "代號" if "代號" in df.columns else df.columns[0]
+  name_col = "名稱" if "名稱" in df.columns else df.columns[1]
+
   clean_etf = {}
-  for code, name in etf_dict.items():
-    pure = code.split(".")[0]
-    if "B" not in pure and "D" not in pure and "U" not in pure:
+  for _, row in df.iterrows():
+    code = str(row[code_col]).strip() if pd.notna(row[code_col]) else ""
+    name = str(row[name_col]).strip() if pd.notna(row[name_col]) else ""
+    if not code or code.lower() == "nan":
+      continue
+    pure = code.split(".")[0].strip()
+    if pure and "B" not in pure and "D" not in pure and "U" not in pure:
       clean_etf[pure] = name
   return clean_etf
 
 
-etf_dict = load_etf_list()
+# 1. 從 Google Sheet（失敗或空白時改讀本機 etf_list.csv）載入 ETF 清單
+@st.cache_data(ttl=600)
+def load_etf_list():
+  try:
+    df_remote = pd.read_csv(ETF_SHEET_CSV_URL, dtype=str)
+    remote_etf = _parse_etf_df(df_remote)
+    if remote_etf:
+      return remote_etf, "google_sheet"
+  except Exception:
+    pass
+
+  if os.path.exists(LOCAL_ETF_CSV):
+    df_local = pd.read_csv(LOCAL_ETF_CSV, dtype=str)
+    return _parse_etf_df(df_local), "local_csv"
+  return {}, "empty"
+
+
+etf_dict, etf_source = load_etf_list()
 yf_etf_list = [f"{c}.TW" for c in etf_dict.keys()]
+
+if etf_source == "local_csv":
+  st.info("ℹ️ Google Sheet 目前為空或無法讀取，暫時使用本機 `etf_list.csv` 清單（匯入後最多 10 分鐘自動同步）。")
+elif etf_source == "empty":
+  st.warning("⚠️ 無法載入 ETF 清單，請確認 Google Sheet 或 `etf_list.csv`。")
 
 # 查詢區間設定（主畫面可收合面板，預設展開）
 current_year = datetime.datetime.now().year
