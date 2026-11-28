@@ -51,7 +51,7 @@ def load_etf_list():
     pass
 
   if os.path.exists(LOCAL_ETF_CSV):
-    df_local = pd.read_csv(LOCAL_ETF_CSV, dtype=str)
+    df_local = pd.read_csv(LOCAL_ETF_CSV, dtype=str, encoding="utf-8-sig")
     return _parse_etf_df(df_local), "local_csv"
   return {}, "empty"
 
