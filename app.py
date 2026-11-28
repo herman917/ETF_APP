@@ -146,8 +146,7 @@ def load_etf_list():
 etf_dict = load_etf_list()
 yf_etf_list = [f"{c}.TW" for c in etf_dict.keys()]
 
-# 側邊欄設定
-st.sidebar.header("📅 查詢區間設定")
+# 查詢區間設定（主畫面可收合面板，預設展開）
 current_year = datetime.datetime.now().year
 default_start = datetime.date(current_year, 1, 1)
 
@@ -162,15 +161,48 @@ def get_latest_date():
 
 default_end = get_latest_date()
 
-start_date = st.sidebar.date_input("起始日期", default_start)
-end_date = st.sidebar.date_input("結束日期", default_end)
-st.sidebar.markdown("---")
-st.sidebar.caption("[by Herman Hsiao](https://herman917.github.io/herman-home/)")
+if "date_panel_expanded" not in st.session_state:
+  st.session_state.date_panel_expanded = True
+if "start_date" not in st.session_state:
+  st.session_state.start_date = default_start
+if "end_date" not in st.session_state:
+  st.session_state.end_date = default_end
+if "result_df" not in st.session_state:
+  st.session_state.result_df = None
+if "result_range" not in st.session_state:
+  st.session_state.result_range = None
+if "query_error" not in st.session_state:
+  st.session_state.query_error = None
 
-if st.sidebar.button("🚀 開始計算排行", type="primary"):
+panel_placeholder = st.empty()
+run_clicked = False
+
+with panel_placeholder.expander(
+    "📅 點我設定查詢日期範圍", expanded=st.session_state.date_panel_expanded
+):
+  col1, col2 = st.columns(2)
+  with col1:
+    start_date = st.date_input("起始日期", value=st.session_state.start_date)
+  with col2:
+    end_date = st.date_input("結束日期", value=st.session_state.end_date)
+
+  st.session_state.start_date = start_date
+  st.session_state.end_date = end_date
+
+  btn_col, credit_col = st.columns([2, 3])
+  with btn_col:
+    run_clicked = st.button("🚀 開始計算排行", type="primary")
+  with credit_col:
+    st.caption("[by Herman Hsiao](https://herman917.github.io/herman-home/)")
+
+if run_clicked:
   if start_date >= end_date:
-    st.error("❌ 起始日期必須早於結束日期！")
+    st.session_state.query_error = "❌ 起始日期必須早於結束日期！"
+    st.session_state.date_panel_expanded = True
   else:
+    st.session_state.query_error = None
+    # 點按後立即上捲收合查詢面板
+    panel_placeholder.empty()
     with st.spinner("正在抓取市場數據並計算 Top 50，請稍候..."):
       s_str = start_date.strftime("%Y-%m-%d")
       e_str = end_date.strftime("%Y-%m-%d")
@@ -205,7 +237,9 @@ if st.sidebar.button("🚀 開始計算排行", type="primary"):
       data_vol = pd.DataFrame(vol_dict)
 
       if data.empty:
-        st.warning("⚠️ 未抓取到有效資料，請檢查網路或日期區間。")
+        st.session_state.query_error = "⚠️ 未抓取到有效資料，請檢查網路或日期區間。"
+        st.session_state.result_df = None
+        st.session_state.date_panel_expanded = True
       else:
         s_prices = data.bfill().iloc[0]
         e_prices = data.ffill().iloc[-1]
@@ -278,7 +312,16 @@ if st.sidebar.button("🚀 開始計算排行", type="primary"):
               "日均成交(張)": f"{int(avg_lots):,}",
           })
 
-        df_result = pd.DataFrame(rows)
-        st.success(f"✅ 查詢成功！區間：{s_str} 至 {e_str}")
-        st.caption("💡 註：ETF上市時間晚於計算起始日期的價格會標註 * 號")
-        st.dataframe(df_result, use_container_width=True, hide_index=True)
+        st.session_state.result_df = pd.DataFrame(rows)
+        st.session_state.result_range = (s_str, e_str)
+        st.session_state.date_panel_expanded = False
+        st.rerun()
+
+if st.session_state.query_error:
+  st.error(st.session_state.query_error)
+
+if st.session_state.result_df is not None and st.session_state.result_range:
+  s_str, e_str = st.session_state.result_range
+  st.success(f"✅ 查詢成功！區間：{s_str} 至 {e_str}")
+  st.caption("💡 註：ETF上市時間晚於計算起始日期的價格會標註 * 號")
+  st.dataframe(st.session_state.result_df, use_container_width=True, hide_index=True)
