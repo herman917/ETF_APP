@@ -35,7 +35,7 @@ def _parse_etf_df(df):
     if not code or code.lower() == "nan":
       continue
     pure = code.split(".")[0].strip()
-    if pure and "B" not in pure and "D" not in pure and "U" not in pure:
+    if pure:
       clean_etf[pure] = name
   return clean_etf
 
