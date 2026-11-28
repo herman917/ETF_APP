@@ -12,7 +12,7 @@ st.set_page_config(
 
 # 調整標題字體大小與文字
 st.markdown("### 📈 ETF 績效排行")
-st.write("依日期範圍, 計算表現最好的前 30 名 ETF (排除期貨類)")
+st.write("績效前30名")
 
 
 ETF_SHEET_CSV_URL = (
