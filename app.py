@@ -193,7 +193,7 @@ with panel_placeholder.expander(
   with btn_col:
     run_clicked = st.button("🚀 開始計算排行", type="primary")
   with credit_col:
-    st.caption("[by Herman Hsiao](https://herman917.github.io/herman-home/)")
+    st.caption("[https://herman917.github.io/herman-home/](https://herman917.github.io/herman-home/)")
 
 if run_clicked:
   if start_date >= end_date:
@@ -325,3 +325,10 @@ if st.session_state.result_df is not None and st.session_state.result_range:
   st.success(f"✅ 查詢成功！區間：{s_str} 至 {e_str}")
   st.caption("💡 註：ETF上市時間晚於計算起始日期的價格會標註 * 號")
   st.dataframe(st.session_state.result_df, use_container_width=True, hide_index=True)
+
+st.markdown(
+  '<div style="text-align:center;margin-top:28px;padding-top:12px;border-top:1px solid rgba(148,163,184,0.25);font-size:12px;">'
+  '<a href="https://herman917.github.io/herman-home/" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;text-decoration:none;">https://herman917.github.io/herman-home/</a>'
+  '</div>',
+  unsafe_allow_html=True,
+)
