@@ -1,4 +1,5 @@
 import datetime
+import html
 import os
 import pandas as pd
 import streamlit as st
@@ -11,7 +12,7 @@ st.set_page_config(
 
 # 調整標題字體大小與文字
 st.markdown("### 📈 ETF 績效排行")
-st.write("依日期範圍, 計算表現最好的前 50 名 ETF (排除期貨類)")
+st.write("依日期範圍, 計算表現最好的前 30 名 ETF (排除期貨類)")
 
 
 ETF_SHEET_CSV_URL = (
@@ -41,14 +42,19 @@ def _parse_etf_df(df):
 
 # 1. 從 Google Sheet（失敗或空白時改讀本機 etf_list.csv）載入 ETF 清單
 @st.cache_data(ttl=600)
+def _fetch_remote_etf():
+  df_remote = pd.read_csv(ETF_SHEET_CSV_URL, dtype=str)
+  return _parse_etf_df(df_remote)
+
+
 def load_etf_list():
   try:
-    df_remote = pd.read_csv(ETF_SHEET_CSV_URL, dtype=str)
-    remote_etf = _parse_etf_df(df_remote)
+    remote_etf = _fetch_remote_etf()
     if remote_etf:
       return remote_etf, "google_sheet"
+    _fetch_remote_etf.clear()
   except Exception:
-    pass
+    _fetch_remote_etf.clear()
 
   if os.path.exists(LOCAL_ETF_CSV):
     df_local = pd.read_csv(LOCAL_ETF_CSV, dtype=str, encoding="utf-8-sig")
@@ -121,7 +127,7 @@ if run_clicked:
     st.session_state.query_error = None
     # 點按後立即上捲收合查詢面板
     panel_placeholder.empty()
-    with st.spinner("正在抓取市場數據並計算 Top 50，請稍候..."):
+    with st.spinner("正在抓取市場數據並計算 Top 30，請稍候..."):
       s_str = start_date.strftime("%Y-%m-%d")
       e_str = end_date.strftime("%Y-%m-%d")
 
@@ -164,10 +170,10 @@ if run_clicked:
         returns = (e_prices - s_prices) / s_prices * 100
         returns = returns.dropna()
 
-        top_50 = returns.sort_values(ascending=False).head(50)
+        top_30 = returns.sort_values(ascending=False).head(30)
 
-        # 抓取 Top 50 檔完整歷史資料以判斷真實上市日
-        top_yf_list = [f"{c}.TW" for c in top_50.index]
+        # 抓取 Top 30 檔完整歷史資料以判斷真實上市日
+        top_yf_list = [f"{c}.TW" for c in top_30.index]
         df_history = yf.download(top_yf_list, period="max", progress=False)
         hist_close = (
             df_history["Close"]
@@ -183,11 +189,11 @@ if run_clicked:
             hist_close_dict[pure_col] = hist_close[col]
           hist_close_df = pd.DataFrame(hist_close_dict)
         else:
-          pure_col = top_50.index[0]
+          pure_col = top_30.index[0]
           hist_close_df = pd.DataFrame({pure_col: hist_close})
 
         rows = []
-        for rank, (p_code, ret) in enumerate(top_50.items(), 1):
+        for rank, (p_code, ret) in enumerate(top_30.items(), 1):
           name = etf_dict.get(p_code, "未知名稱")
           s_p = s_prices[p_code]
           e_p = e_prices[p_code]
@@ -238,11 +244,169 @@ if run_clicked:
 if st.session_state.query_error:
   st.error(st.session_state.query_error)
 
+def _render_result_table(df: pd.DataFrame):
+  """Render responsive table on desktop and compact cards on mobile portrait."""
+  css = """
+  <style>
+    .etf-desktop-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 10px;
+    }
+    .etf-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    .etf-table th, .etf-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+      white-space: nowrap;
+    }
+    .etf-table th {
+      text-align: left;
+      font-size: 14px;
+      color: #94a3b8;
+      background: rgba(148, 163, 184, 0.08);
+      font-weight: 600;
+    }
+    .etf-table th.num, .etf-table td.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .etf-table tr:last-child td {
+      border-bottom: none;
+    }
+    .etf-pos { color: #f87171; font-weight: 700; }
+    .etf-neg { color: #4ade80; font-weight: 700; }
+    .etf-mobile-list { display: none; }
+
+    @media (max-width: 640px) {
+      .etf-desktop-wrap { display: none; }
+      .etf-mobile-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+      }
+      .etf-card {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 12px 14px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 10px;
+        background: rgba(148, 163, 184, 0.06);
+      }
+      .etf-card-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .etf-card-title {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        min-width: 0;
+        flex-wrap: wrap;
+        font-size: 17px;
+        font-weight: 600;
+      }
+      .etf-card-rank {
+        font-size: 14px;
+        color: #94a3b8;
+        font-weight: 600;
+      }
+      .etf-card-code {
+        font-size: 15px;
+        color: #60a5fa;
+        font-weight: 700;
+      }
+      .etf-card-ret {
+        font-size: 18px;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      .etf-card-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 12px;
+        font-size: 15px;
+        color: #cbd5e1;
+        font-variant-numeric: tabular-nums;
+      }
+    }
+  </style>
+  """
+
+  table_rows = []
+  card_items = []
+  for _, r in df.iterrows():
+    rank = html.escape(str(r["排名"]))
+    code = html.escape(str(r["代號"]))
+    name = html.escape(str(r["ETF 名稱"]))
+    s_p = html.escape(str(r["起始價格"]))
+    e_p = html.escape(str(r["結束價格"]))
+    div = html.escape(str(r["區間總配息"]))
+    ret = html.escape(str(r["含息漲幅"]))
+    vol = html.escape(str(r["日均成交(張)"]))
+    ret_cls = "etf-pos" if str(r["含息漲幅"]).startswith("+") else "etf-neg"
+
+    table_rows.append(
+        f"<tr>"
+        f"<td>{rank}</td>"
+        f"<td>{code}</td>"
+        f"<td>{name}</td>"
+        f'<td class="num">{s_p}</td>'
+        f'<td class="num">{e_p}</td>'
+        f'<td class="num">{div}</td>'
+        f'<td class="num {ret_cls}">{ret}</td>'
+        f'<td class="num">{vol}</td>'
+        f"</tr>"
+    )
+    card_items.append(
+        f'<div class="etf-card">'
+        f'  <div class="etf-card-top">'
+        f'    <div class="etf-card-title">'
+        f'      <span class="etf-card-rank">{rank}</span>'
+        f'      <span class="etf-card-code">{code}</span>'
+        f'      <span>{name}</span>'
+        f"    </div>"
+        f'    <div class="etf-card-ret {ret_cls}">{ret}</div>'
+        f"  </div>"
+        f'  <div class="etf-card-meta">'
+        f"    <span>價 {s_p} → {e_p}</span>"
+        f"    <span>息 {div}</span>"
+        f"    <span>量 {vol}張</span>"
+        f"  </div>"
+        f"</div>"
+    )
+
+  markup = (
+      css
+      + '<div class="etf-desktop-wrap"><table class="etf-table"><thead><tr>'
+      + "<th>排名</th><th>代號</th><th>ETF 名稱</th>"
+      + '<th class="num">起始價格</th><th class="num">結束價格</th>'
+      + '<th class="num">區間總配息</th><th class="num">含息漲幅</th>'
+      + '<th class="num">日均成交(張)</th>'
+      + "</tr></thead><tbody>"
+      + "".join(table_rows)
+      + "</tbody></table></div>"
+      + '<div class="etf-mobile-list">'
+      + "".join(card_items)
+      + "</div>"
+  )
+  st.markdown(markup, unsafe_allow_html=True)
+
+
 if st.session_state.result_df is not None and st.session_state.result_range:
   s_str, e_str = st.session_state.result_range
   st.success(f"✅ 查詢成功！區間：{s_str} 至 {e_str}")
   st.caption("💡 註：ETF上市時間晚於計算起始日期的價格會標註 * 號")
-  st.dataframe(st.session_state.result_df, use_container_width=True, hide_index=True)
+  _render_result_table(st.session_state.result_df)
 
 @st.cache_resource
 def _online_sessions():
