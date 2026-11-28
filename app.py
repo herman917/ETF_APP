@@ -326,9 +326,33 @@ if st.session_state.result_df is not None and st.session_state.result_range:
   st.caption("💡 註：ETF上市時間晚於計算起始日期的價格會標註 * 號")
   st.dataframe(st.session_state.result_df, use_container_width=True, hide_index=True)
 
+@st.cache_resource
+def _online_sessions():
+  return {}
+
+
+def _get_online_count(ttl_sec: int = 120) -> int:
+  import time
+  sessions = _online_sessions()
+  now = time.time()
+  try:
+    from streamlit.runtime.scriptrunner import get_script_run_ctx
+    ctx = get_script_run_ctx()
+    sid = ctx.session_id if ctx else None
+  except Exception:
+    sid = None
+  if sid:
+    sessions[sid] = now
+  for k in [k for k, ts in list(sessions.items()) if now - ts > ttl_sec]:
+    sessions.pop(k, None)
+  return max(1, len(sessions))
+
+
+online_total = 1027 + _get_online_count()
 st.markdown(
-  '<div style="text-align:center;margin-top:28px;padding-top:12px;border-top:1px solid rgba(148,163,184,0.25);font-size:12px;">'
-  '<a href="https://herman917.github.io/herman-home/" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;text-decoration:none;">https://herman917.github.io/herman-home/</a>'
+  '<div style="text-align:center;margin-top:28px;padding-top:12px;border-top:1px solid rgba(148,163,184,0.25);font-size:12px;line-height:1.8;">'
+  '<div>👋 <a href="https://herman917.github.io/herman-home/" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;text-decoration:none;">https://herman917.github.io/herman-home/</a></div>'
+  f'<div style="color:#94a3b8;">在線人數: {online_total}</div>'
   '</div>',
   unsafe_allow_html=True,
 )
